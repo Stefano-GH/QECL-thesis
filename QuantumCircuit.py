@@ -165,17 +165,6 @@ class QuantumCircuit:
 
 
 
-    def Pauli_depolarization(self, depolarization_probability):
-        self.circuit.append('DEPOLARIZE1', [0, 1, 2], depolarization_probability)
-
-    
-
-    def redemption(self):
-        # Misurement of remaining qubits
-        self.circuit.append('M', [0, 2, 4])
-
-
-
     def redemption_teledata(self, target_clone='S1'):
         '''
         Strategy A: teledata redemption
