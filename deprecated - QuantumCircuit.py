@@ -24,9 +24,10 @@ class QuantumCircuit:
 
 
 
-    def __init__(self):
+    def __init__(self, verbose=False):
         self.circuit = stim.Circuit()
         self.name = ''
+        self.verbose = verbose
 
 
 
@@ -58,19 +59,20 @@ class QuantumCircuit:
         self.circuit.append('CX', [5, 6])
         self.circuit.append('CZ', [2, 6])
 
-        logger.info('Distribution teledata applied on S1 and S2')
+        if self.verbose:
+            logger.info('Distribution teledata applied on S1 and S2')
 
 
 
-    def calculate_fidelty(self, sample_size=1000):
+    def calculate_fidelity(self, sample_size=1000):
         '''
-        Calculate fidelty via comparing the results of measuring q0 with expected theoretical state
+        Calculate fidelity via comparing the results of measuring q0 with expected theoretical state
         '''
 
-        # Unpreparation tasks according to the state
+        # Apply reverse transformation to the states
         if self.input_state == 'plus':
             self.circuit.append('H', [0])
-        elif self.input_state == 'generical':
+        elif self.input_state == 'arbitrary':
             self.circuit.append('S_DAG', [0])
             self.circuit.append('H', [0])
 
@@ -81,13 +83,15 @@ class QuantumCircuit:
         sampler = self.circuit.compile_sampler()
         samples = sampler.sample(shots=sample_size)
 
-        # Save the outcome and count the number of zeros (False)
+        # Save the outcome and count the number of zeros (False), neglecting the ones (True)
         final_measurements = samples[:, -1]
         success_count = np.sum(final_measurements == False)
 
-        fidelty = success_count / sample_size
-        logger.info(f"Fidelty = [{fidelty:.4f}]")
-        return fidelty
+        fidelity = success_count / sample_size
+        if self.verbose:
+            logger.info(f"fidelity = [{fidelity:.4f}]")
+
+        return fidelity
 
 
 
@@ -122,12 +126,14 @@ class QuantumCircuit:
     
         plot_path = os.path.join(IMG_PATH, "outcome_circuit_execution.png")
         plt.savefig(plot_path)
-        logger.info(f"Circuit executed successfully with {sample_size} shots! Output shape: {samples.shape}. Plot saved in {plot_path}")
         plt.close()
 
+        if self.verbose:
+            logger.info(f"Circuit executed successfully with {sample_size} shots! Output shape: {samples.shape}. Plot saved in {plot_path}")
 
 
-    def instantiate_task1_protocol(self, input_state='zero', theta=0.0, phi =0.0):
+
+    def instantiate_task1_protocol(self, input_state='zero'):
         '''
         Implementation of Proof of Concept protocol with 2 clones.
         Instantiation of three qubits:
@@ -135,20 +141,18 @@ class QuantumCircuit:
         - q1, q2: Bell pair for clone S1, S2
 
         INPUTS:
-        :input_state: ('zero', 'plus', 'generical')
+        :input_state: ('zero', 'plus', 'arbitrary')
         :theta:
         '''
         self.name = f'Proof of Concept protocol with input state {input_state}'
         self.input_state = input_state
-        self.theta = theta
-        self.phi = phi
 
         # Input state q0
         if input_state == 'zero':
             pass
         elif input_state == 'plus':
             self.circuit.append('H', [0])
-        elif input_state == 'generical':
+        elif input_state == 'arbitrary':
             self.circuit.append('H', [0])
             self.circuit.append('S', [0])
         else:
@@ -161,7 +165,8 @@ class QuantumCircuit:
         # Distribute the secret between input q0 and clone q1 through phase kickback
         self.circuit.append('CZ', [1, 0])
     
-        logger.info(f"Circuit with name *{self.name}* has been created")
+        if self.verbose:
+            logger.info(f"Circuit with name *{self.name}* has been created")
 
 
 
@@ -183,11 +188,11 @@ class QuantumCircuit:
         self.circuit.append('CX', [7, 8])
         self.circuit.append('CZ', [7, 8])
 
-        if target_clone == 'S2':
-            self.circuit.append('CZ', [8, 0])
+        # Pair the key with the clone
+        self.circuit.append('CZ', [8, 0])
 
-        self.circuit.append('M', [0])
-        logger.info(f"Redemption by teledata configured for path by using {target_clone}")
+        if self.verbose:
+            logger.info(f"Redemption by teledata configured for path by using {target_clone}")
 
 
 
@@ -205,10 +210,13 @@ class QuantumCircuit:
         # Non-local interaction
         self.circuit.append('CZ', [clone_qubit, 7])
         self.circuit.append('M', [7])
-        self.circuit.append('CZ', [8, clone_qubit])
+        self.circuit.append('CZ', [7, 8])
 
-        self.circuit.append('M', [0])
-        logger.info(f"Redemption by telegate configured for path by using {target_clone}")
+        # Pair the key with the clone
+        self.circuit.append('CZ', [8, 0])
+
+        if self.verbose:
+            logger.info(f"Redemption by telegate configured for path by using {target_clone}")
 
 
     
@@ -218,9 +226,11 @@ class QuantumCircuit:
 
         # Generate the diagram and save it
         diagram = str( self.circuit.diagram('timeline-svg') )
+        # TODO: test value 'timeline-3d', 'interactive'
         mode = 'wb' if isinstance(diagram, bytes) else 'w'
         file = os.path.sep.join([IMG_PATH, filename])
         with open(file, mode) as f:
             f.write(diagram)
 
-        logger.info(f"Diagram of the circuit *{self.name}* saved in {file}")
+        if self.verbose:
+            logger.info(f"Diagram of the circuit *{self.name}* saved in {file}")
